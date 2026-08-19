@@ -2,14 +2,9 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "교수님, 이번만요 🎓 | AI 학점 역산 & 수강신청 플랜 B",
-  description: "수강신청 튕겨도 목표 평점은 지켜주는 AI 학점 역산 & 실시간 플랜 B 솔루션. 대학생을 위한 긴급 수강신청 구조 서비스.",
-  keywords: ["학점 역산", "수강신청", "플랜 B", "AI", "대학생", "GPA 계산"],
-  openGraph: {
-    title: "교수님, 이번만요 🎓",
-    description: "수강신청 튕겨도 목표 평점은 지켜주는 AI 학점 역산 & 실시간 플랜 B",
-    type: "website",
-  },
+  title: "교수님, 이번만요 🎓 | AI 학점 역산 & 시간표 플래너",
+  description: "수강신청이 튕겨도 목표 평점을 지키는 AI 학점 역산 & 인터랙티브 시간표 플래너.",
+  keywords: ["학점 역산", "수강신청", "시간표", "AI", "대학생", "GPA"],
 };
 
 export default function RootLayout({
