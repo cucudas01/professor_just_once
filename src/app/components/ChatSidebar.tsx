@@ -121,7 +121,7 @@ export default function ChatSidebar({ courses, gradeInfo, onCoursesChange }: Pro
         </div>
         <div>
           <p className="text-sm font-semibold text-slate-900">AI 시간표 조교</p>
-          <p className="text-xs text-slate-400">Gemini 2.5 Flash</p>
+          <p className="text-xs text-slate-400">Gemini 3.6 Flash</p>
         </div>
         <div className="ml-auto w-2 h-2 rounded-full bg-emerald-400" />
       </div>

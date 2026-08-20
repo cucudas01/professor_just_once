@@ -12,6 +12,7 @@ import { validateTimetable } from "../lib/timetable/conflict";
 
 const DEFAULT_GRADE_INFO: GradeInfo = {
   university: "",
+  college: "",
   department: "",
   completedCredits: "",
   currentGpa: "",

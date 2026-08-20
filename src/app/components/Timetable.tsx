@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, AlertCircle } from "lucide-react";
+import { X, AlertCircle, Wifi } from "lucide-react";
 import type { Course, DayType } from "../types";
 import { COURSE_COLORS } from "../types";
 import { calculateTotalCredits } from "../../lib/timetable/credits";
@@ -43,6 +43,10 @@ export default function Timetable({ courses, onCoursesChange }: Props) {
   };
 
   const selectedCourse = menu ? courses.find((c) => c.id === menu.courseId) : null;
+
+  // 비대면/온라인 과목과 대면 과목 분리
+  const onlineCourses = courses.filter((c) => c.isOnline === true);
+  const offlineCourses = courses.filter((c) => c.isOnline !== true);
 
   // 총 학점 계산 (중복 과목은 한 번만 카운트)
   const totalCredits = calculateTotalCredits(courses);
@@ -104,7 +108,7 @@ export default function Timetable({ courses, onCoursesChange }: Props) {
 
             {/* 일별 열 */}
             {DAYS.map((day) => {
-              const dayCourses = courses.filter((c) => c.day === day);
+              const dayCourses = offlineCourses.filter((c) => c.day === day);
               return (
                 <div
                   key={day}
@@ -183,7 +187,35 @@ export default function Timetable({ courses, onCoursesChange }: Props) {
         </div>
       </div>
 
-      {/* 컨텍스트 메뉴 */}
+      {/* 온라인/비대면 과목 영역 */}
+      {onlineCourses.length > 0 && (
+        <div className="px-4 py-3 border-t border-slate-200 bg-sky-50/50 flex-shrink-0">
+          <p className="text-xs font-semibold text-sky-700 mb-2 flex items-center gap-1.5">
+            <Wifi className="w-3.5 h-3.5" />
+            비대면 과목 ({onlineCourses.length}개)
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {onlineCourses.map((course) => {
+              const colors = COURSE_COLORS[course.colorIndex % COURSE_COLORS.length];
+              return (
+                <button
+                  key={course.id}
+                  onClick={(e) => handleCourseClick(e, course)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                    course.failed
+                      ? "bg-rose-50 border-rose-200 text-rose-700 line-through opacity-60"
+                      : `${colors.bg} ${colors.border} ${colors.text}`
+                  }`}
+                >
+                  <Wifi className="w-3 h-3 opacity-60" />
+                  {course.name}
+                  <span className="opacity-60">· {course.credits}학점</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       {menu && selectedCourse && (
         <div
           className="fixed z-50 bg-white border border-slate-200 rounded-xl shadow-lg py-1 min-w-[180px] animate-fade-in"
@@ -192,7 +224,9 @@ export default function Timetable({ courses, onCoursesChange }: Props) {
         >
           <div className="px-3 py-2 border-b border-slate-100">
             <p className="text-sm font-semibold text-slate-900 truncate">{selectedCourse.name}</p>
-            <p className="text-xs text-slate-400">{selectedCourse.day}요일 · {selectedCourse.credits}학점</p>
+            <p className="text-xs text-slate-400">
+              {selectedCourse.isOnline ? "🌐 비대면" : `${selectedCourse.day}요일`} · {selectedCourse.credits}학점
+            </p>
           </div>
           <button
             className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-slate-50 transition-colors ${

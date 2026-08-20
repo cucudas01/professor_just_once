@@ -1,22 +1,38 @@
-import type { Course } from "../../app/types";
+import type { Course, ScheduleSlot } from "../../app/types";
 import { safeParseTimetable } from "./validation";
 
 /**
+ * 과목의 유효한 시간 슬롯 목록을 반환합니다.
+ * slots[] 가 있으면 slots를 사용, 없으면 기존 day/startHour/duration/room 기반으로 단일 슬롯 생성
+ */
+function getSlots(course: Course): ScheduleSlot[] {
+  if (course.slots && course.slots.length > 0) {
+    return course.slots;
+  }
+  return [{ day: course.day, startHour: course.startHour, duration: course.duration, room: course.room }];
+}
+
+/**
+ * 두 슬롯 사이의 시간 겹침 여부를 판별합니다.
+ */
+function slotsOverlap(a: ScheduleSlot, b: ScheduleSlot): boolean {
+  if (a.day !== b.day) return false;
+  return a.startHour < b.startHour + b.duration && b.startHour < a.startHour + a.duration;
+}
+
+/**
  * 튕기지 않은(!failed) 과목들 간의 시간 충돌 여부를 확인합니다.
+ * slots[] 복합 요일 슬롯을 완벽하게 지원합니다.
  */
 export function hasTimeConflict(courses: Course[]): boolean {
   const activeCourses = courses.filter((c) => !c.failed);
   for (let i = 0; i < activeCourses.length; i++) {
     for (let j = i + 1; j < activeCourses.length; j++) {
-      const c1 = activeCourses[i];
-      const c2 = activeCourses[j];
-
-      if (c1.day === c2.day) {
-        // 시간 겹침 체크: c1.startHour < c2.endHour && c2.startHour < c1.endHour
-        const c1End = c1.startHour + c1.duration;
-        const c2End = c2.startHour + c2.duration;
-        if (c1.startHour < c2End && c2.startHour < c1End) {
-          return true;
+      const aSlots = getSlots(activeCourses[i]);
+      const bSlots = getSlots(activeCourses[j]);
+      for (const a of aSlots) {
+        for (const b of bSlots) {
+          if (slotsOverlap(a, b)) return true;
         }
       }
     }
@@ -32,16 +48,16 @@ export function findConflictingCourses(courses: Course[]): [Course, Course][] {
   const conflicts: [Course, Course][] = [];
   for (let i = 0; i < activeCourses.length; i++) {
     for (let j = i + 1; j < activeCourses.length; j++) {
-      const c1 = activeCourses[i];
-      const c2 = activeCourses[j];
-
-      if (c1.day === c2.day) {
-        const c1End = c1.startHour + c1.duration;
-        const c2End = c2.startHour + c2.duration;
-        if (c1.startHour < c2End && c2.startHour < c1End) {
-          conflicts.push([c1, c2]);
+      const aSlots = getSlots(activeCourses[i]);
+      const bSlots = getSlots(activeCourses[j]);
+      let conflicted = false;
+      for (const a of aSlots) {
+        for (const b of bSlots) {
+          if (slotsOverlap(a, b)) { conflicted = true; break; }
         }
+        if (conflicted) break;
       }
+      if (conflicted) conflicts.push([activeCourses[i], activeCourses[j]]);
     }
   }
   return conflicts;
@@ -62,24 +78,25 @@ export function validateTimetable(courses: Course[]): { success: boolean; errors
 
   // 2. 개별 과목의 시간 한계선 검증 (startHour + duration <= 18)
   for (const course of courses) {
-    if (course.startHour + course.duration > 18) {
-      errors.push(
-        `[${course.name}] 수업 시간이 운영 시간(09:00 ~ 18:00)을 초과합니다 (${course.startHour}시 시작, ${course.duration}시간 수업).`
-      );
+    const slots = getSlots(course);
+    for (const slot of slots) {
+      if (slot.startHour + slot.duration > 18) {
+        errors.push(
+          `[${course.name}] 수업 시간이 운영 시간(09:00 ~ 18:00)을 초과합니다 (${slot.startHour}시 시작, ${slot.duration}시간 수업).`
+        );
+      }
     }
   }
 
   // 3. 시간 충돌 검사
   const conflicts = findConflictingCourses(courses);
-  if (conflicts.length > 0) {
-    for (const [c1, c2] of conflicts) {
-      errors.push(
-        `시간 충돌 감지: [${c1.name}](${c1.day}요일 ${c1.startHour}시)와 [${c2.name}](${c2.day}요일 ${c2.startHour}시)의 시간이 겹칩니다.`
-      );
-    }
+  for (const [c1, c2] of conflicts) {
+    errors.push(
+      `시간 충돌 감지: [${c1.name}]와 [${c2.name}]의 시간이 겹칩니다.`
+    );
   }
 
-  // 4. 동일 ID 고유성 검사 (failed 여부 상관없이 중복 ID 불가)
+  // 4. 동일 ID 고유성 검사
   const ids = new Set<string>();
   for (const course of courses) {
     if (ids.has(course.id)) {
@@ -88,8 +105,5 @@ export function validateTimetable(courses: Course[]): { success: boolean; errors
     ids.add(course.id);
   }
 
-  return {
-    success: errors.length === 0,
-    errors,
-  };
+  return { success: errors.length === 0, errors };
 }

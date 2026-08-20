@@ -1,22 +1,15 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { ArrowRight, ArrowLeft, AlertTriangle, CheckCircle, TrendingUp } from "lucide-react";
+import { useMemo } from "react";
+import { ArrowRight, ArrowLeft, AlertTriangle, CheckCircle, TrendingUp, ChevronRight } from "lucide-react";
 import type { GradeInfo } from "../types";
+import { getColleges, getDepartments } from "../../lib/timetable/courses";
 
 const UNIVERSITIES = [
   "서울대학교", "연세대학교", "고려대학교", "성균관대학교",
   "한양대학교", "중앙대학교", "경희대학교", "이화여자대학교",
   "KAIST", "POSTECH", "국립 순천대학교", "한국대학교(예시)", "기타",
 ];
-
-const DEPARTMENTS_MAP: Record<string, string[]> = {
-  default: [
-    "컴퓨터공학과", "소프트웨어학부", "전기전자공학과", "기계공학과",
-    "경영학과", "경제학과", "통계학과", "수학과", "물리학과",
-    "화학과", "생명공학과", "법학과", "의학과", "기타",
-  ],
-};
 
 interface Props {
   gradeInfo: GradeInfo;
@@ -29,7 +22,27 @@ export default function StepGradeSetup({ gradeInfo, onGradeInfoChange, onNext, o
   const set = (key: keyof GradeInfo, value: string) =>
     onGradeInfoChange({ ...gradeInfo, [key]: value });
 
-  const departments = DEPARTMENTS_MAP.default;
+  // 대학교 선택 시 하위 단계 초기화
+  const handleUniversityChange = (university: string) => {
+    onGradeInfoChange({ ...gradeInfo, university, college: "", department: "" });
+  };
+
+  // 단과대 선택 시 학과 초기화
+  const handleCollegeChange = (college: string) => {
+    onGradeInfoChange({ ...gradeInfo, college, department: "" });
+  };
+
+  // 대학교에 따른 단과대 목록
+  const colleges = useMemo(
+    () => getColleges(gradeInfo.university),
+    [gradeInfo.university]
+  );
+
+  // 단과대에 따른 학과 목록
+  const departments = useMemo(
+    () => getDepartments(gradeInfo.university, gradeInfo.college || undefined),
+    [gradeInfo.university, gradeInfo.college]
+  );
 
   // 학점 역산 계산
   const calcResult = useMemo(() => {
@@ -45,9 +58,14 @@ export default function StepGradeSetup({ gradeInfo, onGradeInfoChange, onNext, o
     return needed;
   }, [gradeInfo]);
 
-  const isOver = calcResult !== null && calcResult > 4.5;
+  const isOver    = calcResult !== null && calcResult > 4.5;
   const isAlready = calcResult !== null && calcResult < 0;
   const canProceed = gradeInfo.university && gradeInfo.department;
+
+  // 선택 진행 상태 계산
+  const step1Done = !!gradeInfo.university;
+  const step2Done = !!gradeInfo.college;
+  const step3Done = !!gradeInfo.department;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -72,37 +90,132 @@ export default function StepGradeSetup({ gradeInfo, onGradeInfoChange, onNext, o
           <h2 className="text-3xl font-bold text-slate-900 mb-2">기본 정보 입력</h2>
           <p className="text-slate-500 mb-10">학교 정보와 학점 목표를 설정하면 AI가 맞춤형 플랜을 제안해 드려요.</p>
 
-          {/* Section 1: 학교 정보 */}
+          {/* Section 1: 3단계 학교 선택 */}
           <section className="bg-white rounded-2xl border border-slate-200 p-6 mb-4">
             <h3 className="font-semibold text-slate-900 mb-5 flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-indigo-50 text-indigo-600 text-xs flex items-center justify-center font-bold">1</span>
               소속 학교 &amp; 학과
             </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1.5" htmlFor="university">대학교</label>
-                <select
-                  id="university"
-                  value={gradeInfo.university}
-                  onChange={(e) => set("university", e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 bg-white transition-all"
-                >
-                  <option value="">대학교 선택</option>
-                  {UNIVERSITIES.map((u) => <option key={u} value={u}>{u}</option>)}
-                </select>
+
+            {/* 3단 계층 선택 UI */}
+            <div className="space-y-3">
+
+              {/* ① 대학교 */}
+              <div className="flex items-start gap-3">
+                <div className={`mt-2.5 w-2 h-2 rounded-full flex-shrink-0 transition-colors ${step1Done ? "bg-indigo-500" : "bg-slate-200"}`} />
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5" htmlFor="university">
+                    대학교
+                  </label>
+                  <select
+                    id="university"
+                    value={gradeInfo.university}
+                    onChange={(e) => handleUniversityChange(e.target.value)}
+                    className={`w-full px-3 py-2.5 border rounded-xl text-sm text-slate-900 bg-white transition-all appearance-none cursor-pointer ${
+                      step1Done ? "border-indigo-200 bg-indigo-50/30" : "border-slate-200"
+                    }`}
+                  >
+                    <option value="">대학교 선택</option>
+                    {UNIVERSITIES.map((u) => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-600 mb-1.5" htmlFor="department">학과 / 전공</label>
-                <select
-                  id="department"
-                  value={gradeInfo.department}
-                  onChange={(e) => set("department", e.target.value)}
-                  className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 bg-white transition-all"
-                >
-                  <option value="">학과 선택</option>
-                  {departments.map((d) => <option key={d} value={d}>{d}</option>)}
-                </select>
+
+              {/* 화살표 구분선 */}
+              {step1Done && (
+                <div className="flex items-center gap-3 animate-fade-in">
+                  <div className="w-2 flex-shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-slate-300 ml-0.5" />
+                </div>
+              )}
+
+              {/* ② 단과대 */}
+              <div className={`flex items-start gap-3 transition-all duration-200 ${step1Done ? "opacity-100" : "opacity-30 pointer-events-none"}`}>
+                <div className={`mt-2.5 w-2 h-2 rounded-full flex-shrink-0 transition-colors ${step2Done ? "bg-indigo-500" : "bg-slate-200"}`} />
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5" htmlFor="college">
+                    단과대학
+                  </label>
+                  {colleges.length > 0 ? (
+                    <select
+                      id="college"
+                      value={gradeInfo.college}
+                      onChange={(e) => handleCollegeChange(e.target.value)}
+                      disabled={!step1Done}
+                      className={`w-full px-3 py-2.5 border rounded-xl text-sm text-slate-900 bg-white transition-all appearance-none cursor-pointer ${
+                        step2Done ? "border-indigo-200 bg-indigo-50/30" : "border-slate-200"
+                      }`}
+                    >
+                      <option value="">단과대학 선택</option>
+                      {colleges.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      id="college"
+                      type="text"
+                      placeholder="단과대학 직접 입력"
+                      value={gradeInfo.college}
+                      disabled={!step1Done}
+                      onChange={(e) => handleCollegeChange(e.target.value)}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 bg-white transition-all"
+                    />
+                  )}
+                </div>
               </div>
+
+              {/* 화살표 구분선 */}
+              {step2Done && (
+                <div className="flex items-center gap-3 animate-fade-in">
+                  <div className="w-2 flex-shrink-0" />
+                  <ChevronRight className="w-4 h-4 text-slate-300 ml-0.5" />
+                </div>
+              )}
+
+              {/* ③ 학과 */}
+              <div className={`flex items-start gap-3 transition-all duration-200 ${step2Done ? "opacity-100" : "opacity-30 pointer-events-none"}`}>
+                <div className={`mt-2.5 w-2 h-2 rounded-full flex-shrink-0 transition-colors ${step3Done ? "bg-indigo-500" : "bg-slate-200"}`} />
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-slate-600 mb-1.5" htmlFor="department">
+                    학과 / 전공
+                  </label>
+                  {departments.length > 0 ? (
+                    <select
+                      id="department"
+                      value={gradeInfo.department}
+                      onChange={(e) => set("department", e.target.value)}
+                      disabled={!step2Done}
+                      className={`w-full px-3 py-2.5 border rounded-xl text-sm text-slate-900 bg-white transition-all appearance-none cursor-pointer ${
+                        step3Done ? "border-indigo-200 bg-indigo-50/30" : "border-slate-200"
+                      }`}
+                    >
+                      <option value="">학과 선택</option>
+                      {departments.map((d) => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  ) : (
+                    <input
+                      id="department"
+                      type="text"
+                      placeholder="학과 직접 입력"
+                      value={gradeInfo.department}
+                      disabled={!step2Done}
+                      onChange={(e) => set("department", e.target.value)}
+                      className="w-full px-3 py-2.5 border border-slate-200 rounded-xl text-sm text-slate-900 bg-white transition-all"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* 선택 완료 요약 배지 */}
+              {step3Done && (
+                <div className="ml-5 flex items-center gap-2 text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 animate-fade-in">
+                  <CheckCircle className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                  <span className="font-medium">{gradeInfo.university}</span>
+                  <ChevronRight className="w-3 h-3 text-indigo-300" />
+                  <span>{gradeInfo.college}</span>
+                  <ChevronRight className="w-3 h-3 text-indigo-300" />
+                  <span className="font-semibold">{gradeInfo.department}</span>
+                </div>
+              )}
             </div>
           </section>
 
@@ -216,7 +329,13 @@ export default function StepGradeSetup({ gradeInfo, onGradeInfoChange, onNext, o
             <ArrowRight className="w-4 h-4" />
           </button>
           {!canProceed && (
-            <p className="text-center text-sm text-slate-400 mt-2">대학교와 학과를 선택해 주세요</p>
+            <p className="text-center text-sm text-slate-400 mt-2">
+              {!gradeInfo.university
+                ? "대학교를 선택해 주세요"
+                : !gradeInfo.college
+                ? "단과대학을 선택해 주세요"
+                : "학과를 선택해 주세요"}
+            </p>
           )}
         </div>
       </main>

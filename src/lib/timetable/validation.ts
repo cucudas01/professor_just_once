@@ -3,17 +3,33 @@ import type { Course } from "../../app/types";
 
 export const DayTypeSchema = z.enum(["월", "화", "수", "목", "금"]);
 
+export const ScheduleSlotSchema = z.object({
+  day: DayTypeSchema,
+  startHour: z.number().int().min(9).max(17),
+  duration: z.number().int().min(1).max(5),
+  room: z.string().min(1),
+});
+
 export const CourseSchema = z.object({
   id: z.string(),
   name: z.string().min(1, "과목명은 필수입니다."),
   professor: z.string().min(1, "교수명은 필수입니다."),
   room: z.string().min(1, "강의실은 필수입니다."),
-  credits: z.number().min(1, "학점은 최소 1학점 이상이어야 합니다.").max(6, "학점은 최대 6학점 이하이어야 합니다."),
+  credits: z.number().min(1).max(6),
   day: DayTypeSchema,
-  startHour: z.number().int().min(9, "시작 시간은 9시 이후여야 합니다.").max(17, "시작 시간은 17시 이전이어야 합니다."),
-  duration: z.number().int().min(1, "수업 시간은 최소 1시간 이상이어야 합니다.").max(5, "수업 시간은 최대 5시간 이하이어야 합니다."),
+  startHour: z.number().int().min(9).max(17),
+  duration: z.number().int().min(1).max(5),
   colorIndex: z.number().int().min(0).max(5),
   failed: z.boolean().optional(),
+  // 확장 필드 (옵셔널)
+  courseCode: z.string().optional(),
+  classNo: z.string().optional(),
+  category: z.string().optional(),
+  department: z.string().optional(),
+  grade: z.number().int().min(1).max(6).optional(),
+  quota: z.number().int().nonnegative().optional(),
+  isOnline: z.boolean().optional(),
+  slots: z.array(ScheduleSlotSchema).optional(),
 });
 
 export const TimetableSchema = z.array(CourseSchema);
