@@ -1,0 +1,17 @@
+[
+  { "name": "컴퓨터프로그래밍", "professor": "박선진", "room": "IT융합관 201", "credits": 3 },
+  { "name": "이산수학", "professor": "임상오", "room": "공학관 312", "credits": 3 },
+  { "name": "자료구조및실습", "professor": "조익성", "room": "IT융합관 403", "credits": 3 },
+  { "name": "컴퓨터구조", "professor": "최영민", "room": "IT융합관 202", "credits": 3 },
+  { "name": "알고리즘설계", "professor": "정민수", "room": "공학관 415", "credits": 3 },
+  { "name": "데이터베이스시스템", "professor": "신선혜", "room": "IT융합관 301", "credits": 3 },
+  { "name": "소프트웨어공학", "professor": "정동일", "room": "공학관 315", "credits": 3 },
+  { "name": "인공지능응용", "professor": "박현철", "room": "IT융합관 405", "credits": 3 },
+  { "name": "컴퓨터네트워크", "professor": "윤성민", "room": "공학관 403", "credits": 3 },
+  { "name": "운영체제실습", "professor": "최강혁", "room": "IT융합관 308", "credits": 3 },
+  { "name": "남도역사와문화", "professor": "김현수", "room": "인문사회관 102", "credits": 2 },
+  { "name": "창의적문제해결", "professor": "이은하", "room": "대학원동 203", "credits": 2 },
+  { "name": "기초파이썬", "professor": "한승우", "room": "IT융합관 101", "credits": 2 },
+  { "name": "글로벌실용영어", "professor": "Sarah Connor", "room": "언어교육원 201", "credits": 2 },
+  { "name": "대학글쓰기", "professor": "조윤서", "room": "인문사회관 304", "credits": 2 }
+]

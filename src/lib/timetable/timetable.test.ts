@@ -3,6 +3,7 @@ import type { Course } from "../../app/types";
 import { calculateTotalCredits } from "./credits";
 import { hasTimeConflict, findConflictingCourses, validateTimetable } from "./conflict";
 import { safeParseTimetable } from "./validation";
+import { getAvailableCourses } from "./courses";
 
 describe("수강 신청 학점 계산 테스트", () => {
   it("과목 1개일 때 정상적으로 합산한다", () => {
@@ -312,5 +313,19 @@ describe("시간표 비즈니스 룰 및 스키마 검증 테스트", () => {
     ];
     const parsed = safeParseTimetable(badData);
     expect(parsed.success).toBe(false);
+  });
+});
+
+describe("대학별 강의 데이터 동적 로더 테스트", () => {
+  it("대학교명이 '국립 순천대학교'인 경우 순천대학교 강의 데이터를 반환한다", () => {
+    const courses = getAvailableCourses("국립 순천대학교");
+    expect(courses.length).toBeGreaterThan(0);
+    expect(courses.some((c) => c.name === "남도역사와문화")).toBe(true);
+  });
+
+  it("대학교명이 지정되지 않거나 기타인 경우 기본 가상 강의 데이터를 반환한다", () => {
+    const courses = getAvailableCourses();
+    expect(courses.length).toBeGreaterThan(0);
+    expect(courses.some((c) => c.name === "자료구조")).toBe(true);
   });
 });

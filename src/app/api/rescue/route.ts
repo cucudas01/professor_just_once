@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { GoogleGenAI } from "@google/genai";
-import { AVAILABLE_COURSES } from "../../../lib/timetable/courses";
+import { getAvailableCourses } from "../../../lib/timetable/courses";
 import { validateTimetable } from "../../../lib/timetable/conflict";
 import type { Course } from "../../types";
 
@@ -40,9 +40,12 @@ export async function POST(req: Request) {
 
       const ai = new GoogleGenAI({ apiKey });
 
+      const university = gradeInfo?.university;
+      const availableCourses = getAvailableCourses(university);
+
       const timetableJson = JSON.stringify(currentTimetable, null, 2);
       const gradeJson = JSON.stringify(gradeInfo, null, 2);
-      const availableCoursesJson = JSON.stringify(AVAILABLE_COURSES, null, 2);
+      const availableCoursesJson = JSON.stringify(availableCourses, null, 2);
 
       const prompt = `당신은 대학교 수강신청 전문 AI 조교입니다. 학생의 현재 시간표를 분석하고 요청사항에 맞게 수정해 주세요.
 
