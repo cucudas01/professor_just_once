@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X, AlertCircle } from "lucide-react";
 import type { Course, DayType } from "../types";
 import { COURSE_COLORS } from "../types";
+import { calculateTotalCredits } from "../../lib/timetable/credits";
 
 const HOURS = [9, 10, 11, 12, 13, 14, 15, 16, 17];
 const DAYS: DayType[] = ["월", "화", "수", "목", "금"];
@@ -44,16 +45,7 @@ export default function Timetable({ courses, onCoursesChange }: Props) {
   const selectedCourse = menu ? courses.find((c) => c.id === menu.courseId) : null;
 
   // 총 학점 계산 (중복 과목은 한 번만 카운트)
-  const uniqueCourseNames = new Map<string, Course>();
-  courses.forEach((c) => {
-    if (!c.failed && !uniqueCourseNames.has(c.name)) {
-      uniqueCourseNames.set(c.name, c);
-    }
-  });
-  const totalCredits = Array.from(uniqueCourseNames.values()).reduce(
-    (sum, c) => sum + c.credits,
-    0
-  );
+  const totalCredits = calculateTotalCredits(courses);
   const failedCount = courses.filter((c) => c.failed).length;
 
   return (

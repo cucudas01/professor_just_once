@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Send, Loader2, Bot, User } from "lucide-react";
 import type { ChatMessage, Course, GradeInfo } from "../types";
+import { calculateTotalCredits } from "../../lib/timetable/credits";
 
 const QUICK_CHIPS = [
   "금공강 사수해줘",
@@ -42,6 +43,8 @@ export default function ChatSidebar({ courses, gradeInfo, onCoursesChange }: Pro
     setInput("");
     setIsLoading(true);
 
+    const prevCredits = calculateTotalCredits(courses);
+
     try {
       const res = await fetch("/api/rescue", {
         method: "POST",
@@ -59,26 +62,44 @@ export default function ChatSidebar({ courses, gradeInfo, onCoursesChange }: Pro
       if (!res.ok || data.error) {
         setMessages((prev) => [
           ...prev,
-          { role: "assistant", content: `오류가 발생했어요: ${data.error ?? "알 수 없는 오류"}` },
+          {
+            role: "assistant",
+            content: `요청을 처리하는 도중 오류가 발생했습니다: ${data.error ?? "알 수 없는 오류"}\n현재 시간표는 변경되지 않았습니다.`,
+          },
         ]);
         return;
       }
 
-      // 시간표 업데이트
+      // 시간표 업데이트 및 변경 전/후 학점 확인
+      let replyMessage = data.reply ?? "처리가 완료됐어요!";
+
       if (data.updatedTimetable && Array.isArray(data.updatedTimetable)) {
-        onCoursesChange(data.updatedTimetable);
+        const nextCredits = calculateTotalCredits(data.updatedTimetable);
+
+        // 실제로 시간표 과목 구성이 변경되었는지 검사
+        const isChanged = JSON.stringify(courses) !== JSON.stringify(data.updatedTimetable);
+
+        if (isChanged) {
+          onCoursesChange(data.updatedTimetable);
+          replyMessage += `\n\n📊 **수강 설계 리포트**\n- 학점 변동: ${prevCredits}학점 ➔ ${nextCredits}학점`;
+        } else {
+          // 변경이 안 되었는데 에러성 메시지가 없을 때 명시
+          if (!replyMessage.includes("실패") && !replyMessage.includes("유지")) {
+            replyMessage += `\n\n⚠️ 시간표의 시간 충돌이나 학점 중복 검증 등으로 인해 기존 시간표 상태가 유지되었습니다.`;
+          }
+        }
       }
 
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.reply ?? "처리가 완료됐어요!" },
+        { role: "assistant", content: replyMessage },
       ]);
     } catch {
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: "네트워크 오류가 발생했어요. 잠시 후 다시 시도해 주세요.",
+          content: "네트워크 오류가 발생했습니다. 현재 시간표는 변경되지 않았으니 잠시 후 다시 시도해 주세요.",
         },
       ]);
     } finally {

@@ -8,6 +8,7 @@ import Timetable from "./components/Timetable";
 import ChatSidebar from "./components/ChatSidebar";
 import type { Course, GradeInfo, PlanId, Plans, StepType } from "./types";
 import { SAMPLE_COURSES } from "./types";
+import { validateTimetable } from "../lib/timetable/conflict";
 
 const DEFAULT_GRADE_INFO: GradeInfo = {
   university: "",
@@ -27,16 +28,32 @@ const DEFAULT_PLANS: Plans = {
 const STORAGE_KEY = "professor-timetable-v1";
 
 function loadFromStorage(): { plans: Plans; gradeInfo: GradeInfo } | null {
+  if (typeof window === "undefined") return null;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return null;
-    return JSON.parse(raw);
+    const parsed = JSON.parse(raw);
+    if (!parsed || !parsed.plans) return null;
+
+    // Plans A, B, C에 대한 검증을 수행하여 오류 데이터 차단
+    const plans = parsed.plans as Plans;
+    const validA = validateTimetable(plans.A || []).success;
+    const validB = validateTimetable(plans.B || []).success;
+    const validC = validateTimetable(plans.C || []).success;
+
+    if (!validA || !validB || !validC) {
+      console.warn("로컬 스토리지의 시간표 데이터가 유효하지 않아 기본값으로 대체합니다.");
+      return null;
+    }
+
+    return parsed;
   } catch {
     return null;
   }
 }
 
 function saveToStorage(plans: Plans, gradeInfo: GradeInfo) {
+  if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ plans, gradeInfo }));
   } catch {

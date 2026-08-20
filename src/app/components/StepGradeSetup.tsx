@@ -7,7 +7,7 @@ import type { GradeInfo } from "../types";
 const UNIVERSITIES = [
   "서울대학교", "연세대학교", "고려대학교", "성균관대학교",
   "한양대학교", "중앙대학교", "경희대학교", "이화여자대학교",
-  "KAIST", "POSTECH", "한국대학교(예시)", "기타",
+  "KAIST", "POSTECH", "국립 순천대학교", "한국대학교(예시)", "기타",
 ];
 
 const DEPARTMENTS_MAP: Record<string, string[]> = {
