@@ -6,6 +6,9 @@ import { safeParseTimetable } from "./validation";
  * slots[] 가 있으면 slots를 사용, 없으면 기존 day/startHour/duration/room 기반으로 단일 슬롯 생성
  */
 function getSlots(course: Course): ScheduleSlot[] {
+  if (course.isOnline) {
+    return [];
+  }
   if (course.slots && course.slots.length > 0) {
     return course.slots;
   }

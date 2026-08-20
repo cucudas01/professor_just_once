@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Send, Loader2, Bot, User } from "lucide-react";
-import type { ChatMessage, Course, GradeInfo } from "../types";
+import type { ChatMessage, Course, GradeInfo, PlanId } from "../types";
 import { calculateTotalCredits } from "../../lib/timetable/credits";
 
 const QUICK_CHIPS = [
@@ -17,10 +17,11 @@ const QUICK_CHIPS = [
 interface Props {
   courses: Course[];
   gradeInfo: GradeInfo;
+  activePlan: PlanId;
   onCoursesChange: (courses: Course[]) => void;
 }
 
-export default function ChatSidebar({ courses, gradeInfo, onCoursesChange }: Props) {
+export default function ChatSidebar({ courses, gradeInfo, activePlan, onCoursesChange }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       role: "assistant",
@@ -30,13 +31,21 @@ export default function ChatSidebar({ courses, gradeInfo, onCoursesChange }: Pro
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const isSubmittingRef = useRef(false);
+  const activePlanRef = useRef(activePlan);
+
+  useEffect(() => {
+    activePlanRef.current = activePlan;
+  }, [activePlan]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const sendMessage = async (text: string) => {
-    if (!text.trim() || isLoading) return;
+    if (!text.trim() || isLoading || isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
+    const initialPlan = activePlan;
 
     const userMsg: ChatMessage = { role: "user", content: text };
     setMessages((prev) => [...prev, userMsg]);
@@ -80,8 +89,12 @@ export default function ChatSidebar({ courses, gradeInfo, onCoursesChange }: Pro
         const isChanged = JSON.stringify(courses) !== JSON.stringify(data.updatedTimetable);
 
         if (isChanged) {
-          onCoursesChange(data.updatedTimetable);
-          replyMessage += `\n\n📊 **수강 설계 리포트**\n- 학점 변동: ${prevCredits}학점 ➔ ${nextCredits}학점`;
+          if (activePlanRef.current === initialPlan) {
+            onCoursesChange(data.updatedTimetable);
+            replyMessage += `\n\n📊 **수강 설계 리포트 (플랜 ${initialPlan})**\n- 학점 변동: ${prevCredits}학점 ➔ ${nextCredits}학점`;
+          } else {
+            replyMessage += `\n\n⚠️ 응답 처리 중 탭(플랜 ${initialPlan} ➔ 플랜 ${activePlanRef.current})이 변경되어 현재 시간표 상태는 유지되었습니다.`;
+          }
         } else {
           // 변경이 안 되었는데 에러성 메시지가 없을 때 명시
           if (!replyMessage.includes("실패") && !replyMessage.includes("유지")) {
@@ -104,6 +117,7 @@ export default function ChatSidebar({ courses, gradeInfo, onCoursesChange }: Pro
       ]);
     } finally {
       setIsLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 

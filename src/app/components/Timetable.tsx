@@ -4,7 +4,7 @@ import { useState } from "react";
 import { X, AlertCircle, Wifi } from "lucide-react";
 import type { Course, DayType } from "../types";
 import { COURSE_COLORS } from "../types";
-import { calculateTotalCredits } from "../../lib/timetable/credits";
+import { calculateTotalCredits, getBaseCourseId } from "../../lib/timetable/credits";
 
 const HOURS = [9, 10, 11, 12, 13, 14, 15, 16, 17];
 const DAYS: DayType[] = ["월", "화", "수", "목", "금"];
@@ -31,13 +31,34 @@ export default function Timetable({ courses, onCoursesChange }: Props) {
   };
 
   const handleDelete = (id: string) => {
-    onCoursesChange(courses.filter((c) => c.id !== id));
+    const target = courses.find((c) => c.id === id);
+    if (!target) {
+      setMenu(null);
+      return;
+    }
+    const targetBaseId = getBaseCourseId(target.id);
+    onCoursesChange(
+      courses.filter(
+        (c) => c.name !== target.name && getBaseCourseId(c.id) !== targetBaseId
+      )
+    );
     setMenu(null);
   };
 
   const handleToggleFailed = (id: string) => {
+    const target = courses.find((c) => c.id === id);
+    if (!target) {
+      setMenu(null);
+      return;
+    }
+    const targetBaseId = getBaseCourseId(target.id);
+    const newFailed = !target.failed;
     onCoursesChange(
-      courses.map((c) => (c.id === id ? { ...c, failed: !c.failed } : c))
+      courses.map((c) =>
+        c.name === target.name || getBaseCourseId(c.id) === targetBaseId
+          ? { ...c, failed: newFailed }
+          : c
+      )
     );
     setMenu(null);
   };

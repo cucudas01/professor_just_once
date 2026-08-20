@@ -19,9 +19,7 @@ export function calculateTotalCredits(courses: Course[]): number {
   let total = 0;
 
   for (const course of activeCourses) {
-    const baseId = getBaseCourseId(course.id);
-    // 기본 ID와 과목명을 결합하여 고유 키 식별
-    const uniqueKey = `${baseId}::${course.name}`;
+    const uniqueKey = course.courseCode ? course.courseCode : course.name;
 
     if (!seenKeys.has(uniqueKey)) {
       seenKeys.add(uniqueKey);

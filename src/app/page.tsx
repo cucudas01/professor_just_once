@@ -212,6 +212,7 @@ export default function Home() {
           <ChatSidebar
             courses={currentCourses}
             gradeInfo={gradeInfo}
+            activePlan={activePlan}
             onCoursesChange={handleCoursesChange}
           />
         </div>

@@ -3,7 +3,153 @@ import { GoogleGenAI } from "@google/genai";
 import { getAvailableCourses } from "../../../lib/timetable/courses";
 import { validateTimetable } from "../../../lib/timetable/conflict";
 import { calculateTotalCredits } from "../../../lib/timetable/credits";
-import type { Course } from "../../types";
+import type { Course, DayType } from "../../types";
+
+/**
+ * 시간표 과목 목록을 AI 전달용 스키마(schedules 배열 포함)로 포맷팅합니다.
+ */
+export function formatCoursesForAi(courses: Course[]): any[] {
+  const map = new Map<string, any>();
+
+  for (const course of courses) {
+    const key = course.name;
+    if (!map.has(key)) {
+      map.set(key, {
+        id: course.id,
+        name: course.name,
+        professor: course.professor,
+        room: course.room,
+        credits: course.credits,
+        colorIndex: course.colorIndex,
+        failed: course.failed,
+        isOnline: course.isOnline,
+        department: course.department,
+        courseCode: course.courseCode,
+        schedules: course.isOnline
+          ? []
+          : [
+              {
+                day: course.day,
+                start: course.startHour,
+                end: course.startHour + course.duration,
+              },
+            ],
+      });
+    } else {
+      const existing = map.get(key);
+      if (!course.isOnline) {
+        existing.schedules.push({
+          day: course.day,
+          start: course.startHour,
+          end: course.startHour + course.duration,
+        });
+      }
+    }
+  }
+
+  return Array.from(map.values());
+}
+
+/**
+ * AI로부터 반환받은 raw JSON (schedules 배열 포함)을 프론트엔드 Course[] 상태로 변환합니다.
+ * Task 3: schedules 배열을 순회하여 모든 요일과 시간대에 맞춰 Course 블록들을 생성합니다.
+ */
+export function parseAiResponseToCourses(rawTimetable: any[]): Course[] {
+  if (!Array.isArray(rawTimetable)) return [];
+
+  const resultCourses: Course[] = [];
+
+  rawTimetable.forEach((item: any, itemIdx: number) => {
+    const colorIndex = typeof item.colorIndex === "number" ? item.colorIndex : (itemIdx % 6);
+    const failed = Boolean(item.failed);
+    const isOnline = Boolean(item.isOnline);
+    const baseId = item.id || `course-${item.name || itemIdx}`;
+
+    // 비대면 과목 처리
+    if (isOnline) {
+      resultCourses.push({
+        id: `${baseId}-online`,
+        name: item.name || "무제 과목",
+        professor: item.professor || "",
+        room: item.room || "",
+        credits: item.credits || 3,
+        day: item.day || "월",
+        startHour: item.startHour ?? item.start ?? 9,
+        duration: item.duration ?? 1,
+        colorIndex,
+        failed,
+        isOnline: true,
+        department: item.department,
+        courseCode: item.courseCode,
+      });
+      return;
+    }
+
+    // schedules 배열이 존재하는 경우: schedules 배열을 순회하여 모든 요일/시간대의 Course 블록 생성
+    if (Array.isArray(item.schedules) && item.schedules.length > 0) {
+      item.schedules.forEach((sched: any, schedIdx: number) => {
+        const day: DayType = sched.day || item.day || "월";
+        const startHour = sched.start ?? sched.startHour ?? item.startHour ?? 9;
+        const endHour = sched.end ?? (sched.startHour && sched.duration ? sched.startHour + sched.duration : startHour + 2);
+        const duration = sched.duration ?? (endHour > startHour ? endHour - startHour : 2);
+
+        resultCourses.push({
+          id: `${baseId}-${day}-${startHour}-${schedIdx}`,
+          name: item.name || "무제 과목",
+          professor: item.professor || "",
+          room: sched.room || item.room || "",
+          credits: item.credits || 3,
+          day,
+          startHour,
+          duration,
+          colorIndex,
+          failed,
+          isOnline: false,
+          department: item.department,
+          courseCode: item.courseCode,
+        });
+      });
+    } else if (Array.isArray(item.slots) && item.slots.length > 0) {
+      // slots 배열이 존재하는 경우
+      item.slots.forEach((slot: any, slotIdx: number) => {
+        resultCourses.push({
+          id: `${baseId}-${slot.day}-${slot.startHour}-${slotIdx}`,
+          name: item.name || "무제 과목",
+          professor: item.professor || "",
+          room: slot.room || item.room || "",
+          credits: item.credits || 3,
+          day: slot.day,
+          startHour: slot.startHour,
+          duration: slot.duration,
+          colorIndex,
+          failed,
+          isOnline: false,
+          department: item.department,
+          courseCode: item.courseCode,
+        });
+      });
+    } else {
+      // 단일 day, startHour, duration이 있는 레거시 객체의 경우
+      resultCourses.push({
+        id: item.id || `${item.name}-${item.day || "월"}-${item.startHour || 9}`,
+        name: item.name || "무제 과목",
+        professor: item.professor || "",
+        room: item.room || "",
+        credits: item.credits || 3,
+        day: item.day || "월",
+        startHour: item.startHour ?? item.start ?? 9,
+        duration: item.duration ?? 2,
+        colorIndex,
+        failed,
+        isOnline: false,
+        department: item.department,
+        courseCode: item.courseCode,
+      });
+    }
+  });
+
+  return resultCourses;
+}
 
 export async function POST(req: Request) {
   try {
@@ -32,7 +178,7 @@ export async function POST(req: Request) {
         return NextResponse.json({
           reply: demoReply.reply,
           updatedTimetable: demoReply.timetable,
-          engine: "smart_engine"
+          engine: "smart_engine",
         });
       }
 
@@ -43,10 +189,12 @@ export async function POST(req: Request) {
         const university = gradeInfo?.university;
         const availableCourses = getAvailableCourses(university);
 
-        const timetableJson = JSON.stringify(currentTimetable, null, 2);
+        const formattedTimetable = formatCoursesForAi(currentTimetable);
+        const timetableJson = JSON.stringify(formattedTimetable, null, 2);
         const gradeJson = JSON.stringify(gradeInfo, null, 2);
         const availableCoursesJson = JSON.stringify(availableCourses, null, 2);
 
+        // Task 2: Gemini API 프롬프트 및 JSON 스키마 수정
         const prompt = `당신은 대학교 수강신청 전문 AI 조교입니다. 학생의 현재 시간표를 분석하고 요청사항에 맞게 수정해 주세요.
 
 현재 학점 정보:
@@ -61,16 +209,42 @@ ${availableCoursesJson}
 학생 요청: "${message}"
 
 다음 규칙을 준수하세요:
-1. 시간표의 각 Course 객체는 다음 필드를 가집니다: id(string), name(string), professor(string), room(string), credits(number), day("월"|"화"|"수"|"목"|"금"), startHour(9~17 정수), duration(1~5 정수), colorIndex(0~5 정수), failed(boolean optional)
-2. 같은 과목이 여러 요일에 있을 수 있습니다 (e.g., 월수 각각 별도 Course 객체)
+1. 시간표의 각 과목 객체는 반환 시 다음 필드를 가집니다:
+   - name: 과목명 (string)
+   - professor: 교수명 (string)
+   - room: 강의실 (string)
+   - credits: 학점 (number)
+   - colorIndex: 0~5 정수
+   - failed: boolean (optional)
+   - isOnline: boolean (optional)
+   - schedules: 시간표 세부 일정 배열 (예: [{ day: "화", start: 9, end: 11 }, { day: "목", start: 10, end: 11 }])
+     - day: "월" | "화" | "수" | "목" | "금"
+     - start: 시작 시간 (9 ~ 17 정수)
+     - end: 종료 시간 (10 ~ 18 정수, start + duration)
+2. 일주일에 여러 번 진행되는 다회차 강의인 경우, schedules 배열에 모든 요일과 시간대를 담아 반환하세요.
 3. 시간 충돌이 없도록 하세요.
 4. 새로운 과목을 임의로 지어내지 마세요. 반드시 제공된 '선택 가능한 강의 목록'에 존재하는 과목명, 교수명, 강의실, 학점을 그대로 사용해야 합니다.
-5. id는 "새과목이름-요일" 형식으로 고유하게 생성하세요. 기존 과목은 id를 그대로 유지해야 합니다.
+5. id는 과목 식별자(string)입니다. 기존 과목의 id 또는 과목명을 유지하세요.
 6. 응답은 다음 JSON 형식으로만 출력하세요 (다른 설명 텍스트 없이 오직 JSON만 출력):
 
 {
   "reply": "친절하고 위트있는 조교 톤의 설명 메시지 (2-3문장, 이모지 포함)",
-  "updatedTimetable": [/* Course 객체 배열 전체 */]
+  "updatedTimetable": [
+    {
+      "id": "os",
+      "name": "운영체제",
+      "professor": "김민준",
+      "room": "공학관 201",
+      "credits": 3,
+      "colorIndex": 0,
+      "failed": false,
+      "isOnline": false,
+      "schedules": [
+        { "day": "화", "start": 9, "end": 11 },
+        { "day": "목", "start": 10, "end": 11 }
+      ]
+    }
+  ]
 }`;
 
         const response = await ai.models.generateContent({
@@ -81,9 +255,13 @@ ${availableCoursesJson}
           },
         });
 
-        const rawText = response.text ?? "{}";
+        let rawText = response.text ?? "{}";
+        rawText = rawText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
         const parsed = JSON.parse(rawText);
-        const updatedTimetable: Course[] = parsed.updatedTimetable ?? currentTimetable;
+        const rawUpdated = parsed.updatedTimetable ?? currentTimetable;
+        
+        // Task 3: AI 응답 JSON 데이터를 Course[] 상태로 변환 및 schedules 순회
+        const updatedTimetable: Course[] = parseAiResponseToCourses(rawUpdated);
 
         const validation = validateTimetable(updatedTimetable);
         if (!validation.success) {
@@ -99,7 +277,7 @@ ${availableCoursesJson}
         return NextResponse.json({
           reply: parsed.reply ?? "요청하신 대로 시간표를 최적화하여 수정했어요! 🎯",
           updatedTimetable: updatedTimetable,
-          engine: "gemini_api"
+          engine: "gemini_api",
         });
       } catch (error) {
         console.error("[Gemini API Error] API 호출 중 예외 발생 -> 스마트 엔진으로 안전 폴백:", error);
@@ -107,7 +285,7 @@ ${availableCoursesJson}
         return NextResponse.json({
           reply: fallback.reply,
           updatedTimetable: fallback.timetable,
-          engine: "smart_engine"
+          engine: "smart_engine",
         });
       }
     }
@@ -150,13 +328,11 @@ function processSmartEngine(message: string, currentTimetable: Course[], gradeIn
     let addedNames: string[] = [];
     for (const cand of available) {
       if (currentCredits >= 18) break;
-      // 이미 시간표에 있는 과목 제외
       if (updated.some((u) => u.name === cand.name)) continue;
 
-      // 시간 충돌하지 않는 슬롯 찾기
-      const newCourseSlot = findNonConflictingSlot(cand, updated);
-      if (newCourseSlot) {
-        updated.push(newCourseSlot);
+      const newCourseSlots = findNonConflictingSlots(cand, updated);
+      if (newCourseSlots.length > 0) {
+        updated.push(...newCourseSlots);
         addedNames.push(cand.name);
         currentCredits += cand.credits;
       }
@@ -204,9 +380,9 @@ function processSmartEngine(message: string, currentTimetable: Course[], gradeIn
       if (added.length >= 2) break;
       if (updated.some((u) => u.name === cand.name)) continue;
 
-      const slot = findNonConflictingSlot(cand, updated);
-      if (slot) {
-        updated.push(slot);
+      const slots = findNonConflictingSlots(cand, updated);
+      if (slots.length > 0) {
+        updated.push(...slots);
         added.push(cand.name);
       }
     }
@@ -224,9 +400,9 @@ function processSmartEngine(message: string, currentTimetable: Course[], gradeIn
 
     for (const cand of available) {
       if (updated.some((u) => u.name === cand.name)) continue;
-      const slot = findNonConflictingSlot(cand, updated);
-      if (slot) {
-        updated.push(slot);
+      const slots = findNonConflictingSlots(cand, updated);
+      if (slots.length > 0) {
+        updated.push(...slots);
         replacedName = cand.name;
         break;
       }
@@ -244,8 +420,8 @@ function processSmartEngine(message: string, currentTimetable: Course[], gradeIn
   const updated = [...activeCourses];
   const cand = available.find((a) => !updated.some((u) => u.name === a.name));
   if (cand) {
-    const slot = findNonConflictingSlot(cand, updated);
-    if (slot) updated.push(slot);
+    const slots = findNonConflictingSlots(cand, updated);
+    if (slots.length > 0) updated.push(...slots);
   }
 
   return {
@@ -254,29 +430,32 @@ function processSmartEngine(message: string, currentTimetable: Course[], gradeIn
   };
 }
 
-// ─── 시간 충돌하지 않는 슬롯 탐색 함수 ──────────────────────────────────────────
-function findNonConflictingSlot(cand: any, existingCourses: Course[]): Course | null {
+// ─── 시간 충돌하지 않는 슬롯 탐색 함수 (다회차 과목 대응) ──────────────────────────
+function findNonConflictingSlots(cand: any, existingCourses: Course[]): Course[] {
   const days: ("월" | "화" | "수" | "목" | "금")[] = ["월", "화", "수", "목", "금"];
   const startHours = [10, 13, 15, 11, 14];
 
   // 비대면인 경우
   if (cand.isOnline) {
-    return {
-      id: `${cand.name}-${Date.now()}`,
-      name: cand.name,
-      professor: cand.professor,
-      room: cand.room || "",
-      credits: cand.credits,
-      day: "월",
-      startHour: 9,
-      duration: 1,
-      colorIndex: (existingCourses.length + 1) % 6,
-      isOnline: true,
-      department: cand.department,
-    };
+    return [
+      {
+        id: `${cand.name}-${Date.now()}`,
+        name: cand.name,
+        professor: cand.professor,
+        room: cand.room || "",
+        credits: cand.credits,
+        day: "월",
+        startHour: 9,
+        duration: 1,
+        colorIndex: (existingCourses.length + 1) % 6,
+        isOnline: true,
+        department: cand.department,
+      },
+    ];
   }
 
-  // 대면 과목인 경우 충돌하지 않는 시간 탐색
+  // 대면 과목인 경우 충돌하지 않는 시간 탐색 (3학점 과목인 경우 2회 수업 시도 또는 1회 수업 탐색)
+  // 단일 슬롯 후보 탐색
   for (const day of days) {
     for (const startHour of startHours) {
       const testCourse: Course = {
@@ -294,10 +473,10 @@ function findNonConflictingSlot(cand: any, existingCourses: Course[]): Course | 
 
       const testList = [...existingCourses, testCourse];
       if (validateTimetable(testList).success) {
-        return testCourse;
+        return [testCourse];
       }
     }
   }
 
-  return null;
+  return [];
 }

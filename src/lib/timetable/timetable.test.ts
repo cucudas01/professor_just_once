@@ -396,6 +396,35 @@ describe("복합 슬롯(slots[]) 시간 충돌 감지 테스트", () => {
     ];
     expect(hasTimeConflict(courses)).toBe(false);
   });
+  it("비대면(isOnline) 과목은 동일 요일/시간의 오프라인 과목과 충돌을 일으키지 않는다", () => {
+    const courses: Course[] = [
+      {
+        id: "offline-1",
+        name: "운영체제",
+        professor: "김교수",
+        room: "공학관 201",
+        credits: 3,
+        day: "월",
+        startHour: 9,
+        duration: 2,
+        colorIndex: 0,
+        isOnline: false,
+      },
+      {
+        id: "online-1",
+        name: "AI시대 컴퓨팅사고",
+        professor: "이교수",
+        room: "",
+        credits: 2,
+        day: "월",
+        startHour: 9,
+        duration: 1,
+        colorIndex: 1,
+        isOnline: true,
+      },
+    ];
+    expect(hasTimeConflict(courses)).toBe(false);
+  });
 });
 
 describe("getDepartments 학과 목록 동적 추출 테스트", () => {
