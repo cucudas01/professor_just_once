@@ -68,15 +68,23 @@ export default function Home() {
   const [plans, setPlans] = useState<Plans>(DEFAULT_PLANS);
   const [activePlan, setActivePlan] = useState<PlanId>("A");
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  // 로컬 스토리지에서 복원
+  // 로컬 스토리지에서 데이터 안전 복원 (Next.js SSR Hydration 에러 방지)
   useEffect(() => {
     const saved = loadFromStorage();
     if (saved) {
       setPlans(saved.plans);
       setGradeInfo(saved.gradeInfo);
     }
+    setIsHydrated(true);
   }, []);
+
+  // 상태(plans 또는 gradeInfo) 변경 시 localStorage 자동 갱신 (Auto-Save)
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveToStorage(plans, gradeInfo);
+  }, [plans, gradeInfo, isHydrated]);
 
   const currentCourses: Course[] = plans[activePlan];
 

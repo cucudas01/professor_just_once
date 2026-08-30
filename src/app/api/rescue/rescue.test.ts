@@ -90,4 +90,11 @@ describe("Rescue API Route (/api/rescue)", () => {
     expect(formatted[0].schedules[0]).toEqual({ day: "화", start: 9, end: 11 });
     expect(formatted[0].schedules[1]).toEqual({ day: "목", start: 10, end: 12 });
   });
+
+  it("parseAiResponseToCourses는 잘못되었거나 비어있는 구조 데이터에 대해서도 예외 없이 안전한 배열을 반환한다", () => {
+    expect(parseAiResponseToCourses(null as any)).toEqual([]);
+    expect(parseAiResponseToCourses(undefined as any)).toEqual([]);
+    expect(parseAiResponseToCourses("invalid string" as any)).toEqual([]);
+    expect(parseAiResponseToCourses([])).toEqual([]);
+  });
 });

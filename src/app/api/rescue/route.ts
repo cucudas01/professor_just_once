@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { getAvailableCourses } from "../../../lib/timetable/courses";
 import { validateTimetable } from "../../../lib/timetable/conflict";
 import { calculateTotalCredits } from "../../../lib/timetable/credits";
@@ -252,6 +252,49 @@ ${availableCoursesJson}
           contents: prompt,
           config: {
             responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                reply: {
+                  type: Type.STRING,
+                  description: "친절하고 위트있는 조교 톤의 설명 메시지 (2-3문장, 이모지 포함)",
+                },
+                updatedTimetable: {
+                  type: Type.ARRAY,
+                  description: "수정된 시간표 과목 목록 배열",
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      id: { type: Type.STRING, description: "과목 식별자" },
+                      name: { type: Type.STRING, description: "과목명" },
+                      professor: { type: Type.STRING, description: "교수명" },
+                      room: { type: Type.STRING, description: "강의실" },
+                      credits: { type: Type.NUMBER, description: "학점" },
+                      colorIndex: { type: Type.INTEGER, description: "색상 인덱스 (0~5)" },
+                      failed: { type: Type.BOOLEAN, description: "수강신청 실패(튕김) 여부" },
+                      isOnline: { type: Type.BOOLEAN, description: "비대면/사이버 강의 여부" },
+                      department: { type: Type.STRING, description: "개설학과" },
+                      courseCode: { type: Type.STRING, description: "과목코드" },
+                      schedules: {
+                        type: Type.ARRAY,
+                        description: "다회차 강의 시간표 일정 목록",
+                        items: {
+                          type: Type.OBJECT,
+                          properties: {
+                            day: { type: Type.STRING, description: "요일 (월, 화, 수, 목, 금)" },
+                            start: { type: Type.INTEGER, description: "시작 시간 (9~17)" },
+                            end: { type: Type.INTEGER, description: "종료 시간 (10~18)" },
+                          },
+                          required: ["day", "start", "end"],
+                        },
+                      },
+                    },
+                    required: ["name", "schedules"],
+                  },
+                },
+              },
+              required: ["reply", "updatedTimetable"],
+            },
           },
         });
 
